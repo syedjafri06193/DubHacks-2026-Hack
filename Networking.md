@@ -106,22 +106,28 @@ If they seem busy:
 
 ## Person 3: SAP Workshop
 
-**Host / speaker:** ________  **Workshop topic:** ________
+**Host / speaker:** David Nolan, SAP National Security Services (NS2)  **Workshop topic:** ________
 
 **Workshop tips:**
-- Sit near the front and take notes on 1–2 things the speaker says that you want to ask about.
-- Ask one thoughtful question during Q&A so they recognize you afterward.
+- Sit near the front and take notes on 1–2 things David says that you want to ask about.
+- Ask one thoughtful question during Q&A so he recognizes you afterward.
 - Approach right after it ends, before the crowd forms, or wait for the line to clear.
 
 **Intro (after the workshop):**
-> "Hi, I'm Syed. I really enjoyed the part about [something from the workshop]. I'm building [project] this weekend and I'm curious how you'd apply that to something like it."
+> "Hi David, I'm Syed. I really enjoyed the part about [something from the workshop]. I'm building [project] this weekend, and I'm curious how you'd think about it if a government or highly regulated customer wanted to use it."
+
+**Casual intro:**
+> "Hi, I'm Syed. I didn't know much about NS2 before today. What's the biggest difference between building for national security customers and regular enterprise?"
 
 **Tech topics:**
 
 | Topic | Ask |
 |---|---|
-| **AI agents in enterprise** | "Where do AI agents actually fit inside enterprise workflows like finance or supply chain?" |
-| **Joule (SAP's AI copilot)** | "What's been hardest about putting an AI assistant on top of business data?" |
-| **Business Technology Platform (BTP)** | "What's the best way for a new developer to start building on SAP's platform?" |
-| **Cloud ERP migration** | "What makes moving a huge company's ERP to the cloud so hard?" |
-| **Data & integration** | "How do you get clean, connected data out of systems that were never designed to talk to each other?" |
+| **Secure / sovereign cloud** | "What changes when you run cloud software for customers whose data can't leave strict boundaries?" |
+| **AI in regulated environments** | "How do you bring AI tools like Joule to customers who can't send data to public models?" |
+| **Compliance (FedRAMP, DoD levels)** | "How much does compliance shape the way your engineers design and ship software?" |
+| **Supply chain & logistics** | "Where does SAP software make the biggest difference for defense or government logistics?" |
+| **Data & integration** | "How do you connect legacy government systems that were never designed to talk to each other?" |
+| **Career path** | "What should a student know if they're interested in tech work in the national security space?" |
+
+**Tip:** If he mentions security clearances or citizenship requirements, that's a natural opening for the career question, since NS2 roles often have those requirements.
