@@ -140,3 +140,36 @@ If they seem busy:
 | **Getting started** | "Are there internships or early-career paths at NS2, and what makes a candidate stand out?" |
 
 **Tip:** If he mentions security clearances or citizenship requirements, that's a natural opening for the career question, since NS2 roles often have those requirements.
+
+---
+
+## Person 4: Former CTO, Twilio
+
+**Name:** ________  **What they're doing now:** ________
+
+**Intro:**
+> "Hi, I'm Syed. I'm building [project] this weekend. Twilio was one of the first APIs a lot of developers ever used, so I'd love to hear how you think about building tools developers actually love."
+
+**Casual intro:**
+> "Hi, I'm Syed. Are you judging or mentoring today? I'd love to hear what you're working on now after Twilio."
+
+**Tech topics:**
+
+| Topic | Ask |
+|---|---|
+| **Developer experience** | "What made Twilio's API so easy for developers to pick up, and what would you do differently today?" |
+| **APIs as a business** | "How do you turn something as simple as sending a text into a huge platform?" |
+| **Scaling from startup to public company** | "What broke first as Twilio grew, the tech, the team, or the process?" |
+| **AI voice & conversational agents** | "How do you think AI agents will change phone calls and customer conversations?" |
+| **Spam, fraud & trust** | "How do you keep a messaging platform from being abused by spammers and scammers?" |
+| **Verification & identity** | "Are text-message codes on their way out, and what replaces them?" |
+| **Reliability across carriers** | "How do you build something reliable on top of hundreds of telecom networks you don't control?" |
+| **Build vs. buy** | "When should a startup build something itself versus use an API?" |
+
+**Career & leadership questions:**
+- "What did you learn as CTO that you couldn't have learned as an engineer?"
+- "How did your job change as the company went from small to thousands of people?"
+- "What are you most excited about now, after Twilio?"
+- "If you were judging hackathon projects, what would make one feel like a real startup?"
+
+**Tip:** Former CTOs often advise or invest in startups. If they light up when you pitch, ask what they'd want to see before taking the idea seriously.
