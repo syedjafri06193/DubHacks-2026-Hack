@@ -101,3 +101,27 @@ If they seem busy:
 | **Customer experience** | "How is AI changing customer support at T-Mobile's scale?" |
 | **Security & fraud** | "How do you fight SIM-swap and account-takeover fraud?" |
 | **Scale & reliability** | "What's it like keeping a network up for that many customers?" |
+
+---
+
+## Person 3: SAP Workshop
+
+**Host / speaker:** ________  **Workshop topic:** ________
+
+**Workshop tips:**
+- Sit near the front and take notes on 1–2 things the speaker says that you want to ask about.
+- Ask one thoughtful question during Q&A so they recognize you afterward.
+- Approach right after it ends, before the crowd forms, or wait for the line to clear.
+
+**Intro (after the workshop):**
+> "Hi, I'm Syed. I really enjoyed the part about [something from the workshop]. I'm building [project] this weekend and I'm curious how you'd apply that to something like it."
+
+**Tech topics:**
+
+| Topic | Ask |
+|---|---|
+| **AI agents in enterprise** | "Where do AI agents actually fit inside enterprise workflows like finance or supply chain?" |
+| **Joule (SAP's AI copilot)** | "What's been hardest about putting an AI assistant on top of business data?" |
+| **Business Technology Platform (BTP)** | "What's the best way for a new developer to start building on SAP's platform?" |
+| **Cloud ERP migration** | "What makes moving a huge company's ERP to the cloud so hard?" |
+| **Data & integration** | "How do you get clean, connected data out of systems that were never designed to talk to each other?" |
