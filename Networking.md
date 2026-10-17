@@ -129,5 +129,14 @@ If they seem busy:
 | **Supply chain & logistics** | "Where does SAP software make the biggest difference for defense or government logistics?" |
 | **Data & integration** | "How do you connect legacy government systems that were never designed to talk to each other?" |
 | **Career path** | "What should a student know if they're interested in tech work in the national security space?" |
+| **Why a separate company** | "Why does SAP run NS2 as its own company instead of just a division?" |
+| **Insider threat & zero trust** | "How do you design systems assuming someone inside might be a threat?" |
+| **Air-gapped & classified systems** | "How do you deliver updates or new features to systems that aren't connected to the internet?" |
+| **Defense readiness** | "How does software help the military know if equipment and supplies are ready when needed?" |
+| **Moving fast vs. staying secure** | "Government is known for moving slowly. How do you ship modern software without cutting corners on security?" |
+| **AI trust & explainability** | "What does a defense or intelligence customer need before they'll trust an AI's recommendation?" |
+| **Commercial vs. government tech** | "Do you take commercial SAP products and lock them down, or build things specifically for government?" |
+| **Day-to-day work** | "What does a normal week look like for an engineer at NS2?" |
+| **Getting started** | "Are there internships or early-career paths at NS2, and what makes a candidate stand out?" |
 
 **Tip:** If he mentions security clearances or citizenship requirements, that's a natural opening for the career question, since NS2 roles often have those requirements.
