@@ -1,3 +1,4 @@
+try { require('dotenv').config(); } catch {}
 const express = require('express');
 const multer = require('multer');
 const crypto = require('node:crypto');
@@ -7,6 +8,8 @@ const QRCode = require('qrcode');
 const { db, uuid, tx } = require('./db');
 const { seed } = require('./seed');
 const { adapters, status: adapterStatus, normaliseItems, itemCents } = require('./adapters');
+const live = require('./integrations');
+const photonAgent = require('./photon-agent');
 const { minutesToClose, localTime, clampDiscount, priceFor } = require('./pricing');
 
 const PORT = +process.env.PORT || 3000;
@@ -17,6 +20,10 @@ const UPLOADS = path.join(__dirname, '..', 'uploads');
 fs.mkdirSync(UPLOADS, { recursive: true });
 
 seed();
+photonAgent.init(db);
+if (live.tiger.available()) live.tiger.init(db).then(() => { tigerReady = true; console.log('[tiger] connected'); })
+  .catch(e => { tigerError = e.message; console.warn('[tiger] init failed:', e.message); });
+let tigerReady = false, tigerError = null;
 const app = express();
 app.use(express.json({ limit: '1mb' }));
 app.use(express.static(path.join(__dirname, '..', 'public')));
@@ -210,11 +217,10 @@ api.get('/stores', (_req, res) => res.json(db.prepare('SELECT id, name, type, ad
 
 // ---------- reservations & payments (§4.3, §5.2) ----------
 const code = () => Array.from(crypto.randomBytes(6), b => 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'[b % 31]).join('');
-api.post('/reservations', auth('buyer'), (req, res) => {
-  const qty = Math.round(+req.body.qty || 1);
+function createHold({ userId, listingId, qty }) {
   if (!(qty > 0)) throw new ApiError(400, 'invalid_input', 'Quantity must be positive');
   const r = tx(() => {
-    const l = db.prepare('SELECT * FROM listings WHERE id = ?').get(req.body.listing_id);
+    const l = db.prepare('SELECT * FROM listings WHERE id = ?').get(listingId);
     if (!l) throw new ApiError(404, 'not_found', 'Unknown listing');
     if (l.status !== 'active' || l.pickup_until <= Date.now()) throw new ApiError(409, 'sold_out', 'This listing is no longer available');
     if (l.qty_available < qty) throw new ApiError(409, 'sold_out', `Only ${l.qty_available} left`);
@@ -222,11 +228,15 @@ api.post('/reservations', auth('buyer'), (req, res) => {
     db.prepare('UPDATE listings SET qty_available = ?, status = ? WHERE id = ?').run(left, left === 0 ? 'sold_out' : 'active', l.id);
     const id = uuid();
     db.prepare(`INSERT INTO reservations (id, listing_id, buyer_id, qty, total_cents, status, hold_expires_at, pickup_code, created_at)
-      VALUES (?,?,?,?,?,'pending',?,?,?)`).run(id, l.id, req.user.id, qty, l.price_cents * qty, Date.now() + HOLD_MS, code(), Date.now());
+      VALUES (?,?,?,?,?,'pending',?,?,?)`).run(id, l.id, userId, qty, l.price_cents * qty, Date.now() + HOLD_MS, code(), Date.now());
     return { id, listing_id: l.id, qty_available: left, status: left === 0 ? 'sold_out' : 'active' };
   });
   emit('listing.updated', { id: r.listing_id, qty_available: r.qty_available, status: r.status });
-  res.status(201).json(reservationOut(r.id, req.user.id));
+  return r;
+}
+api.post('/reservations', auth('buyer'), (req, res) => {
+  const r = createHold({ userId: req.user.id, listingId: req.body.listing_id, qty: Math.round(+req.body.qty || 1) });
+  res.status(201).json(reservationOut(r.id));
 });
 function reservationOut(id) {
   const r = db.prepare('SELECT * FROM reservations WHERE id = ?').get(id);
@@ -256,7 +266,8 @@ api.post('/reservations/:id/pay', auth('buyer'), wrap(async (req, res) => {
     throw new ApiError(409, 'invalid_input', 'Already paid');
   }
   if (r.status === 'cancelled' || r.hold_expires_at < Date.now()) throw new ApiError(409, 'hold_expired', 'Your 10-minute hold expired');
-  const ch = await adapters.pay.charge({ reservationId: r.id, amountCents: r.total_cents, token: req.body.payment_token, idempotencyKey: key });
+  const ch = await adapters.pay.charge({ reservationId: r.id, amountCents: r.total_cents, token: req.body.payment_token, idempotencyKey: key,
+    card: { exp: req.body.card_exp, cvc: req.body.card_cvc }, buyer: { name: req.user.name, email: req.user.email } });
   if (!ch.ok) throw new ApiError(402, 'payment_declined', 'Card declined. Try a different card.');
   const l = db.prepare('SELECT * FROM listings WHERE id = ?').get(r.listing_id);
   tx(() => {
@@ -267,6 +278,10 @@ api.post('/reservations/:id/pay', auth('buyer'), wrap(async (req, res) => {
   });
   emit('reservation.paid', { reservation_id: r.id, qty: r.qty, total_cents: r.total_cents, title: l.title },
     u => u && u.store_id === l.store_id);
+  const store = db.prepare('SELECT name FROM stores WHERE id = ?').get(l.store_id);
+  adapters.memory.remember({ db, userId: req.user.id, text: `Buyer ${req.user.id} bought "${l.title}" (${(J(l.tags) || []).join(', ')}) from ${store.name} for $${(r.total_cents / 100).toFixed(2)} at ${new Date().toLocaleTimeString('en-US', { timeZone: 'America/Los_Angeles' })}`, metadata: { store_id: l.store_id } }).catch(() => {});
+  const code = db.prepare('SELECT pickup_code FROM reservations WHERE id = ?').get(r.id).pickup_code;
+  photonAgent.notifyUser(db, req.user.id, `Paid ✅ ${l.title} at ${store.name}. Pickup code: ${code}`).catch(() => {});
   res.json({ status: 'paid', visa_txn_id: ch.txnId, payout: { status: 'queued' }, source: ch._source, ...reservationOut(r.id) });
 }));
 function cancel(r) {
@@ -304,6 +319,11 @@ api.post('/pickup', auth('seller'), (req, res) => {
     db.prepare("UPDATE reservations SET status='picked_up', picked_up_at=? WHERE id=?").run(Date.now(), r.id);
     db.prepare('INSERT INTO impact_events VALUES (?,?,?,?,?,?,?)').run(Date.now(), r.store_id, r.id, meals, kg, +(kg * CO2E_PER_KG).toFixed(2), r.total_cents);
   });
+  if (live.tiger.available()) {
+    const st = db.prepare('SELECT name FROM stores WHERE id = ?').get(r.store_id);
+    live.tiger.insert({ ts: Date.now(), store_id: r.store_id, store_name: st.name, reservation_id: r.id, meals_saved: meals, kg_saved: kg,
+      co2e_kg: +(kg * CO2E_PER_KG).toFixed(2), cents_recovered: r.total_cents }).catch(e => console.warn('[tiger] insert failed:', e.message));
+  }
   emit('impact.updated', impactSummary());
   emit('reservation.picked_up', { reservation_id: r.id }, u => u && u.id === r.buyer_id);
   res.json({ ok: true, meals_saved: meals, kg_saved: kg, reservation: reservationOut(r.id) });
@@ -326,7 +346,13 @@ function impactSummary(storeId) {
   return { totals: { ...t, kg: +(+t.kg).toFixed(1), co2e: +(+t.co2e).toFixed(1) }, daily, by_store,
     assumptions: { kg_per_meal: KG_PER_MEAL, co2e_per_kg: CO2E_PER_KG } };
 }
-api.get('/impact/summary', (req, res) => res.json(impactSummary(req.query.store_id)));
+api.get('/impact/summary', wrap(async (req, res) => {
+  if (live.tiger.available() && tigerReady) {
+    try { return res.json({ ...(await live.tiger.summary(req.query.store_id)), assumptions: { kg_per_meal: KG_PER_MEAL, co2e_per_kg: CO2E_PER_KG }, source: 'tiger-data' }); }
+    catch (e) { tigerError = e.message; }
+  }
+  res.json({ ...impactSummary(req.query.store_id), source: 'local' });
+}));
 api.get('/impact/card/:storeId.svg', (req, res) => {
   const s = db.prepare('SELECT * FROM stores WHERE id = ?').get(req.params.storeId);
   if (!s) throw new ApiError(404, 'not_found', 'Unknown store');
@@ -341,9 +367,12 @@ api.get('/impact/card/:storeId.svg', (req, res) => {
 });
 api.get('/health', (_req, res) => {
   let dbOk = true; try { db.prepare('SELECT 1').get(); } catch { dbOk = false; }
-  res.json({ ok: dbOk, db: dbOk ? 'ok' : 'down', adapters: adapterStatus, sse_clients: clients.size });
+  res.json({ ok: dbOk, db: dbOk ? 'ok' : 'down', adapters: adapterStatus, sse_clients: clients.size,
+    tiger_data: live.tiger.available() ? (tigerReady ? 'live' : `error: ${tigerError || 'connecting'}`) : 'off',
+    photon: photonAgent.status, public_url: process.env.PUBLIC_URL || null });
 });
-api.post('/admin/reset', (_req, res) => { seed({ force: true }); emit('impact.updated', impactSummary()); res.json({ ok: true }); });
+api.post('/admin/reset', (req, res) => {
+  if (process.env.ADMIN_TOKEN && req.headers['x-admin-token'] !== process.env.ADMIN_TOKEN && req.body?.token !== process.env.ADMIN_TOKEN) throw new ApiError(403, 'forbidden', 'Admin token required'); seed({ force: true }); emit('impact.updated', impactSummary()); res.json({ ok: true }); });
 
 app.use('/api/v1', api);
 app.use('/api', (req, res) => res.status(404).json({ error: { code: 'not_found', message: 'No such endpoint' } }));
@@ -395,9 +424,15 @@ async function runJob(kind, p) {
       const inRadius = d <= (prefs?.radius_km || 5);
       c.res.write(`event: listing.new\ndata: ${JSON.stringify({ ...summary, distance_km: +d.toFixed(2), match: fit.ok && inRadius })}\n\n`);
     }
+    await photonAgent.alertListing(db, { listing: l, store: s, matches: async userId => {
+      const { prefs } = await adapters.memory.get({ db, userId });
+      const here = { lat: prefs?.lat || 47.6553, lng: prefs?.lng || -122.3035 };
+      return prefsFit(l, prefs).ok && km(here, s) <= (prefs?.radius_km || 5);
+    } });
   }
 }
 const timer = setInterval(() => tick().catch(e => console.error('worker', e)), 1000);
+const stopPhoton = photonAgent.start(db, { reserve: createHold });
 
 const server = app.listen(PORT, () => console.log(`Last Call running on http://localhost:${PORT}`));
-module.exports = { app, close: () => { clearInterval(timer); for (const c of clients) c.res.end(); server.closeAllConnections(); server.close(); } };
+module.exports = { app, close: () => { clearInterval(timer); stopPhoton(); for (const c of clients) c.res.end(); server.closeAllConnections(); server.close(); } };

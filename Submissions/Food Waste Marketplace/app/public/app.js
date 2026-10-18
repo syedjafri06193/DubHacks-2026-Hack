@@ -150,8 +150,8 @@ async function viewCheckout(id) {
       <p class="small">Held for you: <span class="timer" id="hold"></span></p></div>
     <form class="card" id="pay"><div class="row between"><h3 style="margin:0">Pay with card</h3><span class="pill">VISA sandbox</span></div>
       <label>Card number</label><input id="card" inputmode="numeric" autocomplete="cc-number" value="4111 1111 1111 1111">
-      <div class="row"><div style="flex:1"><label>Expiry</label><input value="12/28" autocomplete="cc-exp"></div><div style="flex:1"><label>CVC</label><input value="123" autocomplete="cc-csc"></div></div>
-      <p class="small muted">Test cards: 4111 1111 1111 1111 approves · 4000 0000 0000 0002 declines.</p>
+      <div class="row"><div style="flex:1"><label>Expiry</label><input id="exp" value="12/28" autocomplete="cc-exp"></div><div style="flex:1"><label>CVC</label><input id="cvc" value="123" autocomplete="cc-csc"></div></div>
+      <p class="small muted">Sandbox test cards: 4111 1111 1111 1111 approves (Visa / CyberSource sandbox).</p>
       <button class="btn block" id="paybtn">Pay ${$$(r.total_cents)}</button>
       <button type="button" class="btn ghost block" id="cancel" style="margin-top:8px">Release hold</button></form>`;
   clearInterval(ticker);
@@ -161,7 +161,7 @@ async function viewCheckout(id) {
   $('#pay').onsubmit = async e => {
     e.preventDefault(); const b = $('#paybtn'); b.disabled = true; b.innerHTML = '<span class="spin"></span> Authorising…';
     try {
-      await api(`/reservations/${id}/pay`, { method: 'POST', headers: { 'Idempotency-Key': key }, body: { payment_token: $('#card').value } });
+      await api(`/reservations/${id}/pay`, { method: 'POST', headers: { 'Idempotency-Key': key }, body: { payment_token: $('#card').value, card_exp: $('#exp').value, card_cvc: $('#cvc').value } });
       toast('Payment approved ✓', 'good'); location.hash = `#/order/${id}`;
     } catch (err) { toast(esc(err.message), 'bad'); b.disabled = false; b.textContent = `Pay ${$$(r.total_cents)}`; }
   };

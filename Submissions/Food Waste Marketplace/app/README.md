@@ -34,19 +34,24 @@ Requires Node 22.5+ (uses the built-in `node:sqlite`, so there are no native dep
 | PWA: manifest, service worker, camera capture, notifications | ✅ |
 | `/api/v1/health` with live/mock status per adapter | ✅ |
 
-## Sponsor adapters (live or mock)
+## Sponsor integrations
 
-Everything runs on mocks out of the box. Set `MOCK_<NAME>=0` plus the key to go live. If a live call fails, it falls back to the mock automatically (turn this off with `AUTO_FALLBACK=0`).
+Copy `.env.example` to `.env` and fill in whatever you have. **Any service with its key set runs live**; anything blank runs on its mock, and a failing live call falls back to the mock automatically, so the demo never breaks. `GET /api/v1/health` shows which services are live, plus the last error for each.
 
-| Adapter | Live today | To wire up |
+| Service | Env vars | What it does live |
 |---|---|---|
-| `gemini` (`GEMINI_API_KEY`) | ✅ Real Gemini call with JSON mode, schema check and one retry | Nothing more needed |
-| `perceptron` (`PERCEPTRON_API_KEY`, `PERCEPTRON_URL`) | ✅ Generic POST. Without it, live vision uses Gemini | Confirm the response shape |
-| `visa`, `solana`, `backboard` | Stubs that delegate to the mocks | Replace the `*Live` functions in `src/adapters.js` |
+| Gemini | `GEMINI_API_KEY` | Writes the listing and proposes a discount (clamped by the server); backup food detection; answers buyers' text questions |
+| Perceptron | `PERCEPTRON_URL` + `PERCEPTRON_API_KEY` (event endpoint) or `FAL_KEY` (Isaac on fal.ai) | Identifies and counts the food in the seller's photo |
+| Visa (CyberSource sandbox) | `CYBS_MERCHANT_ID`, `CYBS_KEY_ID`, `CYBS_SECRET` | Real sandbox authorization and capture (`/pts/v2/payments`) |
+| Solana (devnet) | `SOLANA_PAYER_SECRET` (`npm run solana:setup`) | Real devnet SOL transfer to the store wallet, with an explorer link |
+| Backboard | `BACKBOARD_API_KEY` | Stores buyer preferences and purchase history as memories; used for ranking and alert targeting |
+| Tiger Data | `DATABASE_URL` | Impact events go into a Timescale hypertable with a continuous aggregate; the dashboard reads from it |
+| Photon 2.0 | `PHOTON_API_KEY`, `PHOTON_PROJECT_ID`, `PHOTON_AGENT_USER_ID` | iMessage agent: text `JOIN <name>`, get deal alerts, reply `RESERVE` to get a hold plus checkout link, `STOP` to opt out, anything else is answered by Gemini |
+| Vultr + GoDaddy | — | `DOMAIN=yourdomain.com bash deploy/vultr-setup.sh` on an Ubuntu server, with the GoDaddy A record pointing at it |
 
 ## Differences from the design doc
 
-- SQLite stands in for Tiger Data so it runs with zero setup. The schema mirrors §4, so porting to Postgres/Timescale is a matter of changing SQL dialect in `src/db.js` and `impactSummary`.
+- App tables live in SQLite for zero setup; impact metrics are mirrored to Tiger Data when `DATABASE_URL` is set. The schema mirrors §4, so porting to Postgres/Timescale is a matter of changing SQL dialect in `src/db.js` and `impactSummary`.
 - Express replaces Next.js, with a vanilla-JS PWA. It's one process and one deploy, which fits Vultr behind Caddy.
 - Impact cards are SVG, not PNG.
 - Alerts use SSE plus browser notifications. Web Push (VAPID) is not wired yet.

@@ -6,14 +6,20 @@
   "scripts": {
     "test": "node --no-warnings --test test/*.test.js",
     "start": "node --no-warnings src/server.js",
-    "seed": "node --no-warnings src/seed.js"
+    "seed": "node --no-warnings src/seed.js",
+    "solana:setup": "node --no-warnings scripts/solana-setup.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@photon-ai/api": "^0.5.0",
+    "@solana/web3.js": "^1.99.0",
+    "bs58": "^6.0.0",
+    "dotenv": "^18.0.8",
     "express": "^5.3.0",
     "multer": "^2.4.0",
+    "pg": "^8.23.1",
     "qrcode": "^1.5.4"
   },
   "engines": {

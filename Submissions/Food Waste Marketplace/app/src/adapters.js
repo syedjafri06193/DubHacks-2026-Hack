@@ -2,6 +2,7 @@
 // MOCK_<NAME>=0 selects live (when its key is present); AUTO_FALLBACK (default on) drops to the
 // mock if a live call throws. Status is surfaced on GET /api/v1/health.
 const crypto = require('node:crypto');
+const live = require('./integrations');
 const { band } = require('./pricing');
 
 const AUTO_FALLBACK = process.env.AUTO_FALLBACK !== '0';
@@ -44,8 +45,9 @@ function normaliseItems(items) {
 
 function itemCents(name) { return (CATALOG[name] || { cents: 500 }).cents; }
 
-function pick(name, live, mock) {
-  const wantLive = process.env[`MOCK_${name.toUpperCase()}`] === '0' && live.available();
+function pick(name, liveImpl, mock) {
+  const live = liveImpl;
+  const wantLive = process.env[`MOCK_${name.toUpperCase()}`] !== '1' && live.available();
   status[name] = { mode: wantLive ? 'live' : 'mock', lastFallback: status[name]?.lastFallback || null };
   return new Proxy({}, {
     get(_, method) {
@@ -69,11 +71,11 @@ async function gemini(parts, { timeoutMs = 8000 } = {}) {
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), timeoutMs);
   try {
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
-      method: 'POST', signal: ctl.signal, headers: { 'content-type': 'application/json' },
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`, {
+      method: 'POST', signal: ctl.signal, headers: { 'content-type': 'application/json', 'x-goog-api-key': process.env.GEMINI_API_KEY },
       body: JSON.stringify({ contents: [{ parts }], generationConfig: { responseMimeType: 'application/json', temperature: 0.4 } }),
     });
-    if (!r.ok) throw new Error(`Gemini HTTP ${r.status}`);
+    if (!r.ok) throw new Error(`Gemini HTTP ${r.status}: ${(await r.text()).slice(0, 200)}`);
     const j = await r.json();
     return JSON.parse(j.candidates[0].content.parts[0].text);
   } finally { clearTimeout(t); }
@@ -82,22 +84,20 @@ const hasGemini = () => !!process.env.GEMINI_API_KEY;
 
 // ---------- Vision (Perceptron) ----------
 // Live: Perceptron if configured; otherwise Gemini vision is used as the live detector.
+// Live: Perceptron (event endpoint or Isaac on fal.ai) first; Gemini vision as the backup live detector.
 const visionLive = {
-  available: () => !!process.env.PERCEPTRON_API_KEY || hasGemini(),
-  async detect({ buffer, mimetype }) {
-    if (process.env.PERCEPTRON_API_KEY && process.env.PERCEPTRON_URL) {
-      const r = await fetch(process.env.PERCEPTRON_URL, {
-        method: 'POST', headers: { authorization: `Bearer ${process.env.PERCEPTRON_API_KEY}`, 'content-type': mimetype },
-        body: buffer, signal: AbortSignal.timeout(6000),
-      });
-      if (!r.ok) throw new Error(`Perceptron HTTP ${r.status}`);
-      return { items: (await r.json()).items };
+  available: () => live.perceptron.available() || hasGemini(),
+  async detect(args) {
+    if (!args.buffer) return visionMock.detect(args); // demo preset tiles have no real photo
+    if (live.perceptron.available()) {
+      try { return await live.perceptron.detect(args); }
+      catch (e) { if (!hasGemini()) throw e; console.warn('[perceptron] failed, trying Gemini vision:', e.message); }
     }
     const out = await gemini([
       { text: 'List the distinct food items visible with counts. JSON: {"items":[{"name":string,"qty":int,"confidence":0..1}]}. Use simple singular names like "croissant".' },
-      { inline_data: { mime_type: mimetype, data: buffer.toString('base64') } },
-    ], { timeoutMs: 6000 });
-    return { items: out.items };
+      { inline_data: { mime_type: args.mimetype, data: args.buffer.toString('base64') } },
+    ], { timeoutMs: 10000 });
+    return { items: out.items, provider: 'gemini-vision' };
   },
 };
 const PRESETS = {
@@ -168,6 +168,7 @@ const memoryMock = {
     const row = db.prepare('SELECT data FROM preferences WHERE user_id = ?').get(userId);
     return { prefs: row ? JSON.parse(row.data) : null };
   },
+  async remember() { return {}; },
   async put({ db, userId, prefs }) {
     db.prepare(`INSERT INTO preferences (user_id, data, updated_at) VALUES (?, ?, ?)
       ON CONFLICT(user_id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`)
@@ -175,7 +176,7 @@ const memoryMock = {
     return { prefs };
   },
 };
-const memoryLive = { available: () => !!process.env.BACKBOARD_API_KEY, get: memoryMock.get, put: memoryMock.put };
+const memoryLive = live.backboard;
 
 // ---------- Visa (checkout) ----------
 // Sandbox test numbers: 4111 1111 1111 1111 approves, 4000 0000 0000 0002 declines.
@@ -187,7 +188,7 @@ const payMock = {
     return { ok: !declined, txnId: `sbx_${crypto.randomBytes(6).toString('hex')}`, status: declined ? 'declined' : 'approved' };
   },
 };
-const payLive = { available: () => !!process.env.VISA_API_KEY, charge: payMock.charge };
+const payLive = live.visa;
 
 // ---------- Solana (payouts, devnet) ----------
 const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
@@ -199,7 +200,7 @@ const payoutMock = {
     return { signature, explorerUrl: `https://explorer.solana.com/tx/${signature}?cluster=devnet` };
   },
 };
-const payoutLive = { available: () => !!process.env.SOLANA_PAYER_SECRET, send: payoutMock.send };
+const payoutLive = live.solana;
 
 const adapters = {
   vision: pick('perceptron', visionLive, visionMock),
@@ -209,4 +210,4 @@ const adapters = {
   payout: pick('solana', payoutLive, payoutMock),
 };
 
-module.exports = { adapters, status, normaliseItems, itemCents, CATALOG, PRESETS };
+module.exports = { gemini, hasGemini, adapters, status, normaliseItems, itemCents, CATALOG, PRESETS };
