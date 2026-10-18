@@ -145,13 +145,13 @@ If they seem busy:
 
 ## Person 4: Former CTO, Twilio
 
-**Name:** ________  **What they're doing now:** ________
+**Name:** Mark Simms  **What he's doing now:** ________
 
 **Intro:**
-> "Hi, I'm Syed. I'm building [project] this weekend. Twilio was one of the first APIs a lot of developers ever used, so I'd love to hear how you think about building tools developers actually love."
+> "Hi Mark, I'm Syed. I'm building [project] this weekend. Twilio was one of the first APIs a lot of developers ever used, so I'd love to hear how you think about building tools developers actually love."
 
 **Casual intro:**
-> "Hi, I'm Syed. Are you judging or mentoring today? I'd love to hear what you're working on now after Twilio."
+> "Hi Mark, I'm Syed. Are you judging or mentoring today? I'd love to hear what you're working on now after Twilio."
 
 **Tech topics:**
 
@@ -172,4 +172,4 @@ If they seem busy:
 - "What are you most excited about now, after Twilio?"
 - "If you were judging hackathon projects, what would make one feel like a real startup?"
 
-**Tip:** Former CTOs often advise or invest in startups. If they light up when you pitch, ask what they'd want to see before taking the idea seriously.
+**Tip:** Former CTOs often advise or invest in startups. If Mark lights up when you pitch, ask what he'd want to see before taking the idea seriously.
